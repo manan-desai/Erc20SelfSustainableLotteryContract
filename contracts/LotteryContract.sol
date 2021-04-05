@@ -3,7 +3,6 @@ pragma solidity >=0.6.0 <=0.8.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 pragma experimental ABIEncoderV2;
 
 //Rules:
@@ -12,7 +11,7 @@ pragma experimental ABIEncoderV2;
 // 50% will go to social cause.
 // with every annonced lottery, participant will get native token
 
-contract LotteryContract is Context, Ownable {
+contract LotteryContract is Context {
     using SafeMath for uint256;
     mapping(address => uint256) private _currentLotNumber;
     uint256 private _defaultLotteryPrice;
@@ -20,12 +19,15 @@ contract LotteryContract is Context, Ownable {
     uint256 private _defaultMaxWinners;
     address private _nativeToken;
     uint256 private _totalLotteries;
+    uint256 private _tokenCount;
+    mapping(uint256 => address) _tokenAddress;
+    mapping(address => bool) hasToken;
     event LotteryBought(
         uint256 currentParticipant,
         uint256 lotteryAmount,
         address participant
     );
-    event payTO(Participant[] winner);
+    event WinnersList(Participant[] winner);
 
     constructor(
         uint256 defaultLotteryPrice,
@@ -38,6 +40,7 @@ contract LotteryContract is Context, Ownable {
         _defaultMaxWinners = defaultMaxWinners;
         _nativeToken = nativeToken;
         _totalLotteries = 1;
+        _tokenCount = 0;
     }
 
     struct Participant {
@@ -59,6 +62,11 @@ contract LotteryContract is Context, Ownable {
     function buyLottery(address token) external {
         ERC20 tokenContract = ERC20(token);
         checkRules(token);
+        if (!hasToken[token]) {
+            _tokenCount = _tokenCount.add(1);
+            _tokenAddress[_tokenCount] = token;
+            hasToken[token] = true;
+        }
         uint256 lotteryAmount = _defaultLotteryPrice;
         lotteryAmount = lotteryAmount * (10**tokenContract.decimals());
         // require(
@@ -179,8 +187,8 @@ contract LotteryContract is Context, Ownable {
                 participantsNumber
             );
         }
-        compensateCurrentTokenToAnnouncer(token, totalRemainFund);
-        emit payTO(
+        sendRemainBalanceToAnnouncer(token, totalRemainFund);
+        emit WinnersList(
             lotteryForToken[token].lots[_currentLotNumber[token]].participants
         );
     }
@@ -193,6 +201,14 @@ contract LotteryContract is Context, Ownable {
         Participant[] memory swap = _participants;
         swap[winner] = swap[swapWith];
         return swap;
+    }
+
+    function getTotalTokenCount() external view returns (uint256) {
+        return _tokenCount;
+    }
+
+    function getToken(uint256 number) external view returns (address) {
+        return _tokenAddress[number];
     }
 
     function getCurrentLotteryNumber(address token)
@@ -224,19 +240,19 @@ contract LotteryContract is Context, Ownable {
 
     function returnNativeTokenToLotteryAnnouncer() private {
         ERC20 tokenContract = ERC20(_nativeToken);
-        uint256 reward = 500 * (10**tokenContract.decimals());
-        uint8 halving = uint8(_totalLotteries / 210000);
+        uint256 reward = 50 * (10**tokenContract.decimals());
+        uint8 halving = uint8(_totalLotteries / 210000); // Inflation every 21000 lottery
         tokenContract.transfer(msg.sender, reward >> halving); // reward native token to announcer,which will halv every 210000 lottery
     }
 
-    function compensateCurrentTokenToAnnouncer(
-        address token,
-        uint256 remainAmount
-    ) private {
+    function sendRemainBalanceToAnnouncer(address token, uint256 remainAmount)
+        private
+    {
         ERC20 tokenContract = ERC20(token);
-        tokenContract.transfer(msg.sender, (remainAmount * 80) / 100); // after announcing, 80% reward of remaining balance to lottery announcer
+        tokenContract.transfer(msg.sender, remainAmount); // remaining amount to lottery announcer
     }
 }
 
 // TODO: announcer also get current token's remaing 10%
-// owner can get token
+// store new token
+// test for remain balance and token distribution and done :)

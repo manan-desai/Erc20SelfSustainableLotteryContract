@@ -106,11 +106,20 @@ contract("LotteryContract", (accounts) => {
   });
 
   describe("retrive lottery details", async () => {
+    let totalTokenCount;
     it("should get current lottery number", async () => {
       let getCurrentLottery = await lotteryContract.getCurrentLotteryNumber(
         token.address,
       );
       assert.equal(getCurrentLottery, 1);
+    });
+    it("should get total lottery Token", async () => {
+      totalTokenCount = await lotteryContract.getTotalTokenCount();
+      assert.equal(totalTokenCount, 1);
+    });
+    it("should retrive token address by token number", async () => {
+      let currentTokenAddress = await lotteryContract.getToken(totalTokenCount);
+      assert.equal(currentTokenAddress, token.address);
     });
     it("should get current lottery details", async () => {
       let getCurrentLottery = await lotteryContract.getCurrentLotteryNumber(
@@ -124,7 +133,7 @@ contract("LotteryContract", (accounts) => {
       balanceOfContract = await token.balanceOf(lotteryContract.address);
 
       assert.equal(lotteryDetails.totalFund.toString(), balanceOfContract);
-      console.log(lotteryDetails.lotteryStartedTime <= Date.now());
+      // console.log(lotteryDetails.lotteryStartedTime <= Date.now());
       assert.equal(lotteryDetails.totalParticipants, 2); // 2 person has bought  lottery
     });
   });
@@ -146,7 +155,7 @@ contract("LotteryContract", (accounts) => {
       // console.log(result.logs[0].args, "args");
       for (let value of result.logs[0].args.winner) {
         let balance = await token.balanceOf(value.participant);
-        console.log(balance / decimals, "balance");
+        // console.log(balance / decimals, "balance");
         totalLotteryAmount += value.winningAmout / decimals;
         assert.equal(
           Math.round((balance - value.winningAmout) / decimals), //check current balance - wining balance is same as before anouncing balanace of participant
@@ -220,7 +229,7 @@ contract("LotteryContract", (accounts) => {
       let result;
       let beforeBalance = {};
       let lotteryDetails = await lotteryContract.getDetails(token.address, 2);
-      console.log(lotteryDetails, "lotteryDetails");
+      // console.log(lotteryDetails, "lotteryDetails");
       for (let value of Object.keys(participants)) {
         let balance = await token.balanceOf(value);
         beforeBalance[value] = balance;
@@ -247,18 +256,18 @@ contract("LotteryContract", (accounts) => {
         from: accounts[9],
       });
 
-      console.log(result.logs[0].args[0], "result");
+      // console.log(result.logs[0].args[0], "result");
       for (let value of result.logs[0].args[0]) {
         let balance = await token.balanceOf(value.participant);
         // totalLotteryAmount += value.winningAmout / decimals;
-        console.log(value.winningAmout / decimals, "winning");
+        // console.log(value.winningAmout / decimals, "winning");
         assert.equal(
           Math.round((balance - value.winningAmout) / decimals), //check current balance - wining balance is same as before anouncing balanace of participant
           Math.round((beforeBalance[value.participant] - 0) / decimals),
         );
       }
       let balance = await token.balanceOf(lotteryContract.address);
-      console.log(balance / decimals, "remaining");
+      // console.log(balance / decimals, "remaining");
       let getCurrentLottery = await lotteryContract.getCurrentLotteryNumber(
         token.address,
       );
