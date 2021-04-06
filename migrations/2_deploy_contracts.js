@@ -7,16 +7,17 @@ module.exports = async function (deployer) {
     ERC20Token,
     "TestToken",
     "TEST",
-    231000000,
+    2310000000,
     3000000000,
-    10000,
+    100000,
   );
   let lottery = await deployer.deploy(
     LotteryContract,
     10,
     4,
     10,
-    ERC20Token.address,
+    "TestNative",
+    "TNV",
   ); // lottery time in seccond
   // console.log(ERC20Token.address);
 };

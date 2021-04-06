@@ -11,13 +11,12 @@ pragma experimental ABIEncoderV2;
 // 50% will go to social cause.
 // with every annonced lottery, participant will get native token
 
-contract LotteryContract is Context {
+contract LotteryContract is ERC20 {
     using SafeMath for uint256;
     mapping(address => uint256) private _currentLotNumber;
     uint256 private _defaultLotteryPrice;
-    uint256 private _winingTimeInSeconds;
-    uint256 private _defaultMaxWinners;
-    address private _nativeToken;
+    uint256 private _maxAnnounceTimeInSeconds;
+    uint8 private _defaultMaxWinners;
     uint256 private _totalLotteries;
     uint256 private _tokenCount;
     mapping(uint256 => address) _tokenAddress;
@@ -28,21 +27,7 @@ contract LotteryContract is Context {
         address participant
     );
     event WinnersList(Participant[] winner);
-
-    constructor(
-        uint256 defaultLotteryPrice,
-        uint256 winingTimeInSeconds,
-        uint256 defaultMaxWinners,
-        address nativeToken
-    ) {
-        _defaultLotteryPrice = defaultLotteryPrice;
-        _winingTimeInSeconds = winingTimeInSeconds;
-        _defaultMaxWinners = defaultMaxWinners;
-        _nativeToken = nativeToken;
-        _totalLotteries = 1;
-        _tokenCount = 0;
-    }
-
+    event Reward(address to, uint256 amount, address token);
     struct Participant {
         address participant;
         uint256 winningAmout;
@@ -59,6 +44,21 @@ contract LotteryContract is Context {
     }
     mapping(address => LotterieForSpecificToken) private lotteryForToken;
 
+    constructor(
+        uint256 defaultLotteryPrice,
+        uint64 maxAnnounceTimeInSeconds,
+        uint8 defaultMaxWinners,
+        string memory name,
+        string memory symbole
+    ) ERC20(name, symbole) {
+        _mint(msg.sender, 10000000 * (10**decimals()));
+        _defaultLotteryPrice = defaultLotteryPrice;
+        _maxAnnounceTimeInSeconds = maxAnnounceTimeInSeconds;
+        _defaultMaxWinners = defaultMaxWinners;
+        _totalLotteries = 1;
+        _tokenCount = 0;
+    }
+
     function buyLottery(address token) external {
         ERC20 tokenContract = ERC20(token);
         checkRules(token);
@@ -68,7 +68,7 @@ contract LotteryContract is Context {
             hasToken[token] = true;
         }
         uint256 lotteryAmount = _defaultLotteryPrice;
-        lotteryAmount = lotteryAmount * (10**tokenContract.decimals());
+        lotteryAmount = lotteryAmount * (10**tokenContract.decimals()); // multiply by decimals
         // require(
         //     !lotteryForToken[token].lots[_currentLotNumber[token]].participated[
         //         _msgSender()
@@ -112,7 +112,7 @@ contract LotteryContract is Context {
         if (
             lotteryForToken[token].lots[_currentLotNumber[token]]
                 .lotteryStartedTime +
-                _winingTimeInSeconds <=
+                _maxAnnounceTimeInSeconds <=
             block.timestamp ||
             lotteryForToken[token].lots[_currentLotNumber[token]]
                 .participants
@@ -187,6 +187,7 @@ contract LotteryContract is Context {
                 participantsNumber
             );
         }
+        payNativeTokenToLotteryAnnouncer(); //give reward to announcer.
         sendRemainBalanceToAnnouncer(token, totalRemainFund);
         emit WinnersList(
             lotteryForToken[token].lots[_currentLotNumber[token]].participants
@@ -238,11 +239,11 @@ contract LotteryContract is Context {
             .lotteryStartedTime;
     }
 
-    function returnNativeTokenToLotteryAnnouncer() private {
-        ERC20 tokenContract = ERC20(_nativeToken);
-        uint256 reward = 50 * (10**tokenContract.decimals());
-        uint8 halving = uint8(_totalLotteries / 210000); // Inflation every 21000 lottery
-        tokenContract.transfer(msg.sender, reward >> halving); // reward native token to announcer,which will halv every 210000 lottery
+    function payNativeTokenToLotteryAnnouncer() private {
+        uint256 maxReward = 500 * (10**decimals());
+        uint8 halving = uint8(_totalLotteries / 200000); // Inflation every 200000 lottery
+        _mint(msg.sender, maxReward >> halving); // reward native token to announcer,which will halv every 200000 lottery
+        emit Reward(msg.sender, maxReward >> halving, address(this));
     }
 
     function sendRemainBalanceToAnnouncer(address token, uint256 remainAmount)
@@ -250,6 +251,7 @@ contract LotteryContract is Context {
     {
         ERC20 tokenContract = ERC20(token);
         tokenContract.transfer(msg.sender, remainAmount); // remaining amount to lottery announcer
+        emit Reward(msg.sender, remainAmount, token);
     }
 }
 
